@@ -113,8 +113,8 @@ class ZefyrToolbar extends StatefulWidget implements PreferredSizeWidget {
   final bool autoHide;
 
   static ZefyrToolbarState of(BuildContext context) {
-    final _ZefyrToolbarScope scope =
-        context.inheritFromWidgetOfExactType(_ZefyrToolbarScope);
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_ZefyrToolbarScope>();
     return scope?.toolbar;
   }
 

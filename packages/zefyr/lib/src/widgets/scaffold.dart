@@ -9,8 +9,8 @@ class ZefyrScaffold extends StatefulWidget {
   const ZefyrScaffold({Key key, this.child}) : super(key: key);
 
   static ZefyrScaffoldState of(BuildContext context) {
-    final _ZefyrScaffoldAccess widget =
-        context.inheritFromWidgetOfExactType(_ZefyrScaffoldAccess);
+    final widget =
+        context.dependOnInheritedWidgetOfExactType<_ZefyrScaffoldAccess>();
     return widget.scaffold;
   }
 
@@ -27,8 +27,8 @@ class ZefyrScaffoldState extends State<ZefyrScaffold> {
     });
   }
 
-  void hideToolbar() {
-    if (_toolbarBuilder != null) {
+  void hideToolbar(WidgetBuilder builder) {
+    if (_toolbarBuilder == builder) {
       setState(() {
         _toolbarBuilder = null;
       });

@@ -1,7 +1,6 @@
 // Copyright (c) 2018, the Zefyr project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
@@ -10,6 +9,7 @@ import 'package:notus/notus.dart';
 
 import 'caret.dart';
 import 'render_context.dart';
+import 'selection_utils.dart';
 
 class EditableBox extends SingleChildRenderObjectWidget {
   EditableBox({
@@ -72,7 +72,7 @@ class RenderEditableProxyBox extends RenderBox
     @required TextSelection selection,
     @required Color selectionColor,
     @required Color cursorColor,
-  })  : _node = node,
+  })  : node = node,
         _layerLink = layerLink,
         _renderContext = renderContext,
         _showCursor = showCursor,
@@ -94,11 +94,8 @@ class RenderEditableProxyBox extends RenderBox
 
   bool _isDirty = true;
 
-  ContainerNode get node => _node;
-  ContainerNode _node;
-  set node(ContainerNode value) {
-    _node = value;
-  }
+  @override
+  ContainerNode node;
 
   LayerLink get layerLink => _layerLink;
   LayerLink _layerLink;
@@ -153,11 +150,18 @@ class RenderEditableProxyBox extends RenderBox
   /// Returns `true` if current selection is collapsed and located
   /// within this paragraph.
   bool get containsCaret {
+    if (!node.mounted) {
+      // It is possible that a document node gets unmounted before widget tree
+      // is updated, in which case this function fails when triggered by
+      // _showCursor notification calling markNeedsCursorPaint.
+      // TODO: react to document node's mounted state.
+      return false;
+    }
     if (!_selection.isCollapsed) return false;
 
-    final int start = node.documentOffset;
-    final int end = start + node.length;
-    final int caretOffset = _selection.extentOffset;
+    final start = node.documentOffset;
+    final end = start + node.length;
+    final caretOffset = _selection.extentOffset;
     return caretOffset >= start && caretOffset < end;
   }
 
@@ -227,7 +231,7 @@ class RenderEditableProxyBox extends RenderBox
   }
 
   void _paintCursor(PaintingContext context, Offset offset) {
-    Offset caretOffset =
+    final caretOffset =
         getOffsetForCaret(_selection.extent, _cursorPainter.prototype);
     _cursorPainter.paint(context.canvas, caretOffset + offset);
   }
@@ -267,6 +271,7 @@ class RenderEditableProxyBox extends RenderBox
   TextSelection getLocalSelection(TextSelection documentSelection) =>
       child.getLocalSelection(documentSelection);
 
+  @override
   bool intersectsWithSelection(TextSelection selection) =>
       child.intersectsWithSelection(selection);
 
@@ -324,18 +329,15 @@ abstract class RenderEditableBox extends RenderBox {
   TextSelection getLocalSelection(TextSelection documentSelection) {
     if (!intersectsWithSelection(documentSelection)) return null;
 
-    int nodeBase = node.documentOffset;
-    int nodeExtent = nodeBase + node.length;
-    int base = math.max(0, documentSelection.baseOffset - nodeBase);
-    int extent =
-        math.min(documentSelection.extentOffset, nodeExtent) - nodeBase;
-    return documentSelection.copyWith(baseOffset: base, extentOffset: extent);
+    final nodeBase = node.documentOffset;
+    final nodeExtent = nodeBase + node.length;
+    return selectionRestrict(nodeBase, nodeExtent, documentSelection);
   }
 
   /// Returns `true` if this box intersects with document [selection].
   bool intersectsWithSelection(TextSelection selection) {
-    final int base = node.documentOffset;
-    final int extent = base + node.length;
-    return base <= selection.extentOffset && selection.baseOffset <= extent;
+    final base = node.documentOffset;
+    final extent = base + node.length;
+    return selectionIntersectsWith(base, extent, selection);
   }
 }
